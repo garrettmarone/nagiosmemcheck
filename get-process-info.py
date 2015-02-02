@@ -1,6 +1,6 @@
 #!/bin/python
 
-import getopt,sys,psutil,re
+import getopt,sys,psutil
 
 SYMBOLS = {
     'customary'     : ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'),
@@ -18,22 +18,63 @@ def usage():
 
 def main(argv):
     # Parse cmd line options to get mix and max range
-    min,max=parseargs()
-    print "Minimum: ",bytes2human(min)," Maximum: ",bytes2human(max)
-    procinfocheck(min,max)
+    min,max,debug=parseargs()
+    if debug: print "\nDebugging output turned on\n"
+    if debug: print "Minimum: ",bytes2human(min)," Maximum: ",bytes2human(max)
+    warnlist,critlist=procinfocheck(min,max,debug)
+    if len(critlist) >= 1:
+        print "Proc Memory Usage CRIT"
+        print critlist
+        if (len(warnlist) >= 1): print "WARNING: ",warnlist
+        sys.exit(2)
+    if len(warnlist) >= 1 and len(critlist) = 0:
+        print "Proc Memory Usage WARN"
+        print warnlist
+        sys.exit(1)
+    print "OK"
+    sys.exit(0)
+   
    
 
+def procinfocheck(min,max,debug):
+    vms=0
+    rss=0
+    warncount=0
+    critcount=0
+    critlist=[]
+    warnlist=[]
+    for proc in psutil.process_iter():
+        try:
+            pinfo = proc.as_dict(attrs=['pid','name','get_memory_info'])
+        except psutil.NoSuchProcess:
+            pass
+        else:
+            rss,vms=pinfo['memory_info']
+            if (rss >= min) and ( rss <= max ):
+        	if debug: print pinfo['name'],rss," is greater than",min, "WARN"
+                warncount=warncount+1
+                warnlist.append({pinfo['name']: bytes2human(rss)})
+            elif (rss >= max):
+                critcount=critcount+1
+                critlist.append({pinfo['name']: bytes2human(rss)})
+        	if debug: print pinfo['name'],rss," is greater than",min, "CRIT"
+            else:
+        	pass
+    return warnlist,critlist
+    
 
 def parseargs():
     # Define Required cmd line options
     found_r = False
+    found_d = False
     lefthuman=0
     righthuman=0
     leftbytes=0
     rightbytes=0
 
     try: 
-        opts,args = getopt.getopt(sys.argv[1:],"hr:",["help", "range="])
+        opts,args = getopt.getopt(sys.argv[1:],"hdr:",["help", "debug", "range="])
+        #opts,args = getopt.getopt(sys.argv[1:],"hrd:",["help", "range=", "debug"])
 
     except getopt.GetoptError as err:
         print(err)
@@ -43,6 +84,8 @@ def parseargs():
         if o in ("-h", "--help"):
             usage()
             sys.exit(1)  # Same as above
+        if o in ("-d", "--debug"):
+            found_d = True
         if o in ('-r', '--range'):
             found_r = True
             try: 
@@ -53,38 +96,18 @@ def parseargs():
                 sys.exit(1)
             leftbytes=human2bytes(lefthuman)
             rightbytes=human2bytes(righthuman)
-            return leftbytes,rightbytes
     if not found_r:
         print "\n-r or --range is required"
         usage()
         sys.exit(2)
+    if (leftbytes >= rightbytes):
+         print "\n Seems that your minimum",leftbytes," is greater than your maximum",rightbytes,"\n\n"
+         usage()
+         sys.exit(1)
+    return leftbytes,rightbytes,found_d
         
 
 
-def procinfocheck(min,max):
-    vms=0
-    rss=0
-    string=""
-    for proc in psutil.process_iter():
-        try:
-            pinfo = proc.as_dict(attrs=['pid','name','get_memory_info'])
-        except psutil.NoSuchProcess:
-            pass
-        else:
-            #print(pinfo)
-            string=pinfo['memory_info']
-            print string
-            matchrss = re.compile('(?<=rss=)\d+')
-            #matchvms = re.compile('(?<=vms=)\d+')
-            rss = matchrss.match(pinfo['memory_info']) 
-            #vms = re.search('(?<=vms=)\d+', "string") 
-            #vms = re.search('(?<=vms=)\d+', pinfo['memory_info']) 
-            print rss
-        #if pinfo['memory_info']['vms'] > 100:
-        #	print pinfo['name'];
-        #else:
-        #	pass
-    
 def bytes2human(n, format='%(value).1f %(symbol)s', symbols='customary'):
     """
     Convert n bytes into a human readable string based on format.
