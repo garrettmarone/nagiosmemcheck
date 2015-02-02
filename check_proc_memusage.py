@@ -1,4 +1,13 @@
 #!/bin/python
+"""
+
+Nagios check script to scan all system processes, and determine if any are outside of the acceptable thresholds
+for resident memory vs allocated virtual memory sizes
+
+Author: Garrett Marone <garrett.marone [AT] gmail [DOT] com>
+License: MIT
+
+"""
 
 import getopt,sys,psutil
 
@@ -14,10 +23,13 @@ SYMBOLS = {
 def usage():
     print "\nUsage: -r warn:crit\n\
           warn:crit can be given as 10M:100G to throw a warning on any process over 10mb of resident memory usage\n\
-          and a critical over 100G\n"
+          and a critical over 100G\n\
+          can be given in formats such as 1024B, 100k, 500M, 5G, 10T, 6P, 20Y\n"
+
+
 
 def main(argv):
-    # Parse cmd line options to get mix and max range
+    # Parse cmd line options to get min and max range
     min,max,debug=parseargs()
     if debug: print "\nDebugging output turned on\n"
     if debug: print "Minimum: ",bytes2human(min)," Maximum: ",bytes2human(max)
@@ -41,6 +53,8 @@ def procinfocheck(min,max,debug):
     critcount=0
     critlist=[]
     warnlist=[]
+
+    # Iterate through all processes, and get information
     for proc in psutil.process_iter():
         try:
             pinfo = proc.as_dict(attrs=['pid','name','get_memory_info'])
