@@ -23,13 +23,11 @@ def main(argv):
     if debug: print "Minimum: ",bytes2human(min)," Maximum: ",bytes2human(max)
     warnlist,critlist=procinfocheck(min,max,debug)
     if len(critlist) >= 1:
-        print "Proc Memory Usage CRIT"
-        print critlist
+        print "CRITICAL", critlist
         if (len(warnlist) >= 1): print "WARNING: ",warnlist
         sys.exit(2)
-    if len(warnlist) >= 1 and len(critlist) = 0:
-        print "Proc Memory Usage WARN"
-        print warnlist
+    if len(warnlist) >= 1 and len(critlist) is 0:
+        print "WARNING", warnlist
         sys.exit(1)
     print "OK"
     sys.exit(0)
